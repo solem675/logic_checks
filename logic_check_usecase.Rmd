@@ -1,0 +1,110 @@
+---
+title: "logic_checks"
+author: "HK"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(openxlsx)
+```
+
+
+```{r}
+file_ds <- "sample_msna_data_cati.xlsx"
+
+main_ds <- read.xlsx(file_ds, sheet = 1)
+
+loop_3 <- read.xlsx(file_ds, sheet = 2)
+
+```
+
+
+## Conducting formalized logic checks
+
+Helper file for these checks is to be filled in. 
+
+Fields in a helper file (for cross-checks):
+
+- target_var - variable to be checked
+- target_val - value of the target variable to be checked
+- cross_var - variable to be checked against
+- cross_val - value in cross variable to be checked
+
+```{r}
+logic_checks <- read.xlsx("MSNA_log_checks.xlsx", sheet = "cross_check_main_ds")
+
+get_logic_errors_categorical <- function(data, logic_frame, id_col, enum_col="complementary_col", date_col="complementary_col", enum_com_col="complementary_col", index_col="complementary_col"){
+  
+  data <- data |> mutate(complementary_col = NA_character_)
+  
+  log_checks_issues <- data.frame(matrix(nrow = 0, ncol = 8))
+  colnames(log_checks_issues) <- c(id_col, enum_col, date_col, enum_com_col, index_col, "issue", "comment", "variable_to_change", "correct_value")
+
+
+  for (i in 1:nrow(logic_frame)){
+    var <- logic_frame$target_var[i]
+    crvar <- logic_frame$cross_var[i]
+  
+    val <- logic_frame$target_val[i]
+    crval <- logic_frame$cross_val[i]
+  
+  logic_temp <- data |> filter(!!sym(var) == paste0(val) & !!sym(crvar) == paste0(crval)) |> select(!!sym(id_col), !!sym(enum_col), !!sym(date_col), !!sym(enum_com_col)) |> mutate(issue = paste0("Inconsistent answers: ", val, " in ", var, " and ", crval, " in ", crvar), comment = NA_character_)
+
+  log_checks_issues <- rbind(log_checks_issues, logic_temp)
+  }
+
+  log_checks_issues <- log_checks_issues |> mutate(across(everything(), ~as.character(.))) |> select(-complementrary_col)
+  return(log_checks_issues)
+}
+
+log_ch <- get_logic_errors_categorical(data = main_ds, logic_frame = logic_checks, id_col = "_uuid", enum_col = "enum_id", date_col = "date_survey", enum_com_col = "N_1_enumerator_comment_note")
+
+```
+
+### Categoical to numeric
+
+```{r}
+logic_checks <- read.xlsx("MSNA_log_checks.xlsx", sheet = "num_check_loop3")
+
+
+get_logic_errors_categorical_numeric  <- function(data, logic_frame, id_col, enum_col, date_col, enum_com_col){
+log_checks_issues_num <- data.frame(matrix(nrow = 0, ncol = 8))
+
+
+
+colnames(log_checks_issues_num) <- c(id_col, enum_col, date_col, enum_com_col, "issue", "comment", "variable_to_change", "correct_value") 
+
+log_checks_issues_num <- data |> mutate(across(is.logical, as.numeric))
+
+for (i in 1:nrow(logic_checks)){
+  var <- logic_checks$target_var[i]
+  crvar <- logic_checks$cross_var[i]
+  
+  val <- logic_checks$target_val[i]
+  crval <- logic_checks$cross_val[i]
+  
+  sign <- logic_checks$sign[i]
+  
+  `%.%` <- get(sign)
+  
+  logic_temp <- data |> filter(!!sym(var) == paste0(val) & !!sym(crvar) %.% paste0(crval)) |> select(!!sym(id_col), !!sym(enum_col), !!sym(date_col), !!sym(enum_com_col)) |> mutate(issue = paste0("Inconsistent answers: ", val, " in ", var, " and ", crval, " is ", sign, " ", crvar), comment = NA_character_)
+
+  log_checks_issues_num <- rbind(log_checks_issues_num, logic_temp)
+  }
+  return(log_checks_issues_num)
+}
+
+
+
+log_ch_num <- get_logic_errors_categorical_numeric(data = loop_3, logic_frame = logic_checks, enum_col = NA_character_, date_col = NA_character_, enum_com_col = NA_character_, id_col = "_index")
+
+log_ch_num <- log_ch_num |> mutate(ds = "loop3")
+#start from here tomorrow
+```
+

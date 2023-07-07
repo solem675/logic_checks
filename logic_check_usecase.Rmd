@@ -41,11 +41,13 @@ logic_checks <- read.xlsx("MSNA_log_checks.xlsx", sheet = "cross_check_main_ds")
 
 get_logic_errors_categorical <- function(data, logic_frame, id_col, enum_col="complementary_col", date_col="complementary_col", enum_com_col="complementary_col", index_col="complementary_col"){
   
-  data <- data |> mutate(complementary_col = NA_character_)
+  data <- data |> 
+    mutate(complementary_col = NA_character_)
   
-  log_checks_issues <- data.frame(matrix(nrow = 0, ncol = 8))
+  log_checks_issues <- data.frame(matrix(nrow = 0, ncol = 9))
+  
   colnames(log_checks_issues) <- c(id_col, enum_col, date_col, enum_com_col, index_col, "issue", "comment", "variable_to_change", "correct_value")
-
+  #names(log_checks_issues) <- names(log_checks_issues)[!duplicated(names(log_checks_issues))]
 
   for (i in 1:nrow(logic_frame)){
     var <- logic_frame$target_var[i]
@@ -54,16 +56,27 @@ get_logic_errors_categorical <- function(data, logic_frame, id_col, enum_col="co
     val <- logic_frame$target_val[i]
     crval <- logic_frame$cross_val[i]
   
-  logic_temp <- data |> filter(!!sym(var) == paste0(val) & !!sym(crvar) == paste0(crval)) |> select(!!sym(id_col), !!sym(enum_col), !!sym(date_col), !!sym(enum_com_col)) |> mutate(issue = paste0("Inconsistent answers: ", val, " in ", var, " and ", crval, " in ", crvar), comment = NA_character_)
+  logic_temp <- data |> 
+    filter(!!sym(var) == paste0(val) & !!sym(crvar) == paste0(crval)) |> 
+    select(!!sym(id_col), !!sym(enum_col), !!sym(date_col), !!sym(enum_com_col), !!sym(index_col)) |> 
+    mutate(issue = paste0("Inconsistent answers: ", val, " in ", var, " and ", crval, " in ", crvar), 
+           comment = NA_character_,
+           variable_to_change = NA_character_,
+           correct_value = NA_character_)
 
   log_checks_issues <- rbind(log_checks_issues, logic_temp)
   }
 
-  log_checks_issues <- log_checks_issues |> mutate(across(everything(), ~as.character(.))) |> select(-complementrary_col)
+  log_checks_issues <- log_checks_issues |> 
+    mutate(across(everything(), ~as.character(.))) |> 
+    select(-contains("complementary_col"))
+  
   return(log_checks_issues)
 }
 
 log_ch <- get_logic_errors_categorical(data = main_ds, logic_frame = logic_checks, id_col = "_uuid", enum_col = "enum_id", date_col = "date_survey", enum_com_col = "N_1_enumerator_comment_note")
+
+log_ch <- get_logic_errors_categorical(data = loop_3, logic_frame = logic_checks, id_col = "_uuid", index_col = "_index")
 
 ```
 
@@ -73,14 +86,17 @@ log_ch <- get_logic_errors_categorical(data = main_ds, logic_frame = logic_check
 logic_checks <- read.xlsx("MSNA_log_checks.xlsx", sheet = "num_check_loop3")
 
 
-get_logic_errors_categorical_numeric  <- function(data, logic_frame, id_col, enum_col, date_col, enum_com_col){
-log_checks_issues_num <- data.frame(matrix(nrow = 0, ncol = 8))
-
-
-
-colnames(log_checks_issues_num) <- c(id_col, enum_col, date_col, enum_com_col, "issue", "comment", "variable_to_change", "correct_value") 
-
-log_checks_issues_num <- data |> mutate(across(is.logical, as.numeric))
+get_logic_errors_categorical_numeric  <- function(data, logic_frame, id_col, enum_col="complementary_col", date_col="complementary_col", enum_com_col="complementary_col", index_col="complementary_col"){
+  
+  data <- data |> mutate(complementary_col = NA_character_)
+    
+  log_checks_issues_num <- data.frame(matrix(nrow = 0, ncol = 8))
+  
+  colnames(log_checks_issues_num) <- c(id_col, enum_col, date_col, enum_com_col, "issue", "comment", "variable_to_change", "correct_value") 
+  #names(log_checks_issues_num) <- names(log_checks_issues_num)[!duplicated(names(log_checks_issues_num))]
+  
+  data <- data |> 
+    mutate(across(is.logical, as.numeric))
 
 for (i in 1:nrow(logic_checks)){
   var <- logic_checks$target_var[i]
@@ -93,18 +109,64 @@ for (i in 1:nrow(logic_checks)){
   
   `%.%` <- get(sign)
   
-  logic_temp <- data |> filter(!!sym(var) == paste0(val) & !!sym(crvar) %.% paste0(crval)) |> select(!!sym(id_col), !!sym(enum_col), !!sym(date_col), !!sym(enum_com_col)) |> mutate(issue = paste0("Inconsistent answers: ", val, " in ", var, " and ", crval, " is ", sign, " ", crvar), comment = NA_character_)
+  logic_temp <- data |> 
+    filter(!!sym(var) == paste0(val) & !!sym(crvar) %.% paste0(crval)) |> 
+    select(!!sym(id_col), !!sym(enum_col), !!sym(date_col), !!sym(enum_com_col), !!sym(index_col)) |> 
+    mutate(issue = paste0("Inconsistent answers: ", val, " in ", var, " and ", crval, " is ", sign, " ", crvar), comment = NA_character_)
 
   log_checks_issues_num <- rbind(log_checks_issues_num, logic_temp)
+  log_checks_issues_num <- log_checks_issues_num |> 
+    select(-contains("complementary_col"))
   }
   return(log_checks_issues_num)
 }
 
 
 
-log_ch_num <- get_logic_errors_categorical_numeric(data = loop_3, logic_frame = logic_checks, enum_col = NA_character_, date_col = NA_character_, enum_com_col = NA_character_, id_col = "_index")
+log_ch_num <- get_logic_errors_categorical_numeric(data = loop_3, logic_frame = logic_checks, id_col = "relationship_instance", index_col = "_index")
 
 log_ch_num <- log_ch_num |> mutate(ds = "loop3")
 #start from here tomorrow
+```
+
+```{r}
+lc <- plyr::rbind.fill(log_ch, log_ch_num)
+
+write.xlsx(lc, "log_frame_issues.xlsx")
+```
+
+
+### Apply logic check after revision
+
+```{r}
+logic_issues_all <- read.xlsx("log_frame_issues.xlsx")
+```
+
+```{r}
+
+logic_issues_main <- logic_issues_all |> filter(ds == "main")
+
+get_logic_applied <- function(data, logic_frame_issues, idvar){
+  nam_ds <- names(data)
+  nam_logic <- logic_frame_issues$variable_to_change
+  id_logic <- !!sym(logic_frame_issues$idvar)
+  nam_ds <- setdiff(nam_ds, "_uuid")
+
+
+  for(vi in nam_logic){
+    id_logic_i <- !!sym(logic_frame_issues$idvar)[logic_frame_issues$variable_to_change == vi]
+
+    for(id in id_logic_i){
+
+    main_ds_rec[ which(!!sym(logic_frame_issues$idvar) == id), vi] <- logic_frame_issues$correct_answer[which(!!sym(logic_frame_issues$idvar) == id & logic_frame_issues$variable_to_change == vi)]
+   
+    }
+
+  }
+  return(data)
+}
+
+
+data2 <- get_logic_applied(main_ds, logic_issues_main, idvar="_uuid")
 ```
 

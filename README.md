@@ -1,5 +1,5 @@
-# Data cleaning scripts. Ukraine CO RAM
-Data cleaning scripts, Ukraine CO RAM
+# Data cleaning scripts. Ukraine
+Data cleaning scripts, Ukraine
 
 ## Logic cross-checks
 

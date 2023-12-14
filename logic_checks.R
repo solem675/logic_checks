@@ -49,7 +49,7 @@ get_logic_errors_categorical_numeric  <- function(data, logic_frame, id_col, enu
   log_checks_issues_num <- data.frame(matrix(nrow = 0, ncol = 8))
   
   colnames(log_checks_issues_num) <- c(id_col, enum_col, date_col, enum_com_col, "issue", "comment", "variable_to_change", "correct_value") 
-  #names(log_checks_issues_num) <- names(log_checks_issues_num)[!duplicated(names(log_checks_issues_num))]
+  names(log_checks_issues_num) <- names(log_checks_issues_num)[!duplicated(names(log_checks_issues_num))]
   
   data <- data |> 
     mutate(across(is.logical, as.numeric))
